@@ -193,6 +193,17 @@ func (c *dbosContext) Value(key any) any {
 // This is similar to context.WithValue but maintains DBOS context capabilities.
 // No-op if the provided context is not a concrete dbos.dbosContext.
 func WithValue(ctx DBOSContext, key, val any) DBOSContext {
+	return WithSetter(ctx, func(ctx2 context.Context) context.Context {
+		return context.WithValue(ctx2, key, val)
+	})
+}
+
+type ContextSetter func(ctx context.Context) context.Context
+
+// WithValue returns a copy of the DBOS context with the given key-value pair.
+// This is similar to context.WithValue but maintains DBOS context capabilities.
+// No-op if the provided context is not a concrete dbos.dbosContext.
+func WithSetter(ctx DBOSContext, setter ContextSetter) DBOSContext {
 	if ctx == nil {
 		return nil
 	}
@@ -200,7 +211,7 @@ func WithValue(ctx DBOSContext, key, val any) DBOSContext {
 	if dbosCtx, ok := ctx.(*dbosContext); ok {
 		launched := dbosCtx.launched.Load()
 		childCtx := &dbosContext{
-			ctx:                     context.WithValue(dbosCtx.ctx, key, val), // Spawn a new child context with the value set
+			ctx:                     setter(dbosCtx.ctx), // Spawn a new child context with the value set
 			logger:                  dbosCtx.logger,
 			systemDB:                dbosCtx.systemDB,
 			workflowsWg:             dbosCtx.workflowsWg,
